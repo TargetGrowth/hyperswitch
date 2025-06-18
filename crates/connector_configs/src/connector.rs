@@ -171,6 +171,7 @@ pub struct ConnectorTomlConfig {
 #[serde_with::skip_serializing_none]
 #[derive(Debug, Deserialize, serde::Serialize, Clone)]
 pub struct ConnectorConfig {
+    pub iugu: Option<ConnectorTomlConfig>,
     pub juspaythreedsserver: Option<ConnectorTomlConfig>,
     pub aci: Option<ConnectorTomlConfig>,
     pub adyen: Option<ConnectorTomlConfig>,
@@ -388,6 +389,7 @@ impl ConnectorConfig {
             Connector::DummyBillingConnector => Ok(connector_data.dummy_connector),
             Connector::Iatapay => Ok(connector_data.iatapay),
             Connector::Itaubank => Ok(connector_data.itaubank),
+            Connector::Iugu => Ok(connector_data.iugu),
             Connector::Opennode => Ok(connector_data.opennode),
             Connector::Bambora => Ok(connector_data.bambora),
             Connector::Datatrans => Ok(connector_data.datatrans),

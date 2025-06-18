@@ -162,6 +162,7 @@ hipay.third_base_url = "https://stage-api-gateway.hipay.com/"
 iatapay.base_url = "https://sandbox.iata-pay.iata.org/api/v1"
 inespay.base_url = "https://apiflow.inespay.com/san/v21"
 itaubank.base_url = "https://sandbox.devportal.itau.com.br/"
+iugu.base_url = "https://api.iugu.com/v1"
 jpmorgan.base_url = "https://api-mock.payments.jpmorgan.com/api/v2"
 juspaythreedsserver.base_url = "http://localhost:8000"
 jpmorgan.secondary_base_url="https://id.payments.jpmorgan.com"
@@ -283,6 +284,7 @@ cards = [
     "iatapay",
     "inespay",
     "itaubank",
+    "iugu",
     "jpmorgan",
     "juspaythreedsserver",
     "mollie",

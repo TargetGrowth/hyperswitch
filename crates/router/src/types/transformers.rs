@@ -269,6 +269,7 @@ impl ForeignTryFrom<api_enums::Connector> for common_enums::RoutableConnectors {
             api_enums::Connector::Iatapay => Self::Iatapay,
             api_enums::Connector::Inespay => Self::Inespay,
             api_enums::Connector::Itaubank => Self::Itaubank,
+			api_enums::Connector::Iugu => Self::Iugu,
             api_enums::Connector::Jpmorgan => Self::Jpmorgan,
             api_enums::Connector::Juspaythreedsserver => {
                 Err(common_utils::errors::ValidationError::InvalidValue {

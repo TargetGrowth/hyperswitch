@@ -59,6 +59,7 @@ pub struct ConnectorAuthentication {
     pub iatapay: Option<SignatureKey>,
     pub inespay: Option<HeaderKey>,
     pub itaubank: Option<MultiAuthKey>,
+    pub iugu: Option<HeaderKey>,
     pub jpmorgan: Option<BodyKey>,
     pub juspaythreedsserver: Option<HeaderKey>,
     pub mifinity: Option<HeaderKey>,

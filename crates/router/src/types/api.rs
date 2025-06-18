@@ -490,6 +490,9 @@ impl ConnectorData {
                 enums::Connector::Itaubank => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Itaubank::new())))
                 }
+                enums::Connector::Iugu => {
+                    Ok(ConnectorEnum::Old(Box::new(connector::Iugu::new())))
+                }
                 enums::Connector::Jpmorgan => {
                     Ok(ConnectorEnum::Old(Box::new(connector::Jpmorgan::new())))
                 }

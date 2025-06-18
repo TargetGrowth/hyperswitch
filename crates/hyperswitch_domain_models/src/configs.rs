@@ -120,6 +120,7 @@ pub struct Connectors {
     pub xendit: ConnectorParams,
     pub zen: ConnectorParams,
     pub zsl: ConnectorParams,
+    pub iugu: ConnectorParams,
 }
 
 impl Connectors {

@@ -25,6 +25,7 @@ pub use crate::PaymentMethodType;
 #[strum(serialize_all = "snake_case")]
 /// RoutableConnectors are the subset of Connectors that are eligible for payments routing
 pub enum RoutableConnectors {
+	Iugu,
     Adyenplatform,
     #[cfg(feature = "dummy_connector")]
     #[serde(rename = "stripe_billing_test")]
@@ -179,6 +180,7 @@ pub enum RoutableConnectors {
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum Connector {
+	Iugu,
     Adyenplatform,
     #[cfg(feature = "dummy_connector")]
     #[serde(rename = "stripe_billing_test")]
@@ -434,6 +436,7 @@ impl Connector {
             | Self::Iatapay
 			| Self::Inespay
             | Self::Itaubank
+            | Self::Iugu
             | Self::Jpmorgan
             | Self::Juspaythreedsserver
             | Self::Klarna
@@ -536,6 +539,7 @@ impl Connector {
 impl From<RoutableConnectors> for Connector {
     fn from(routable_connector: RoutableConnectors) -> Self {
         match routable_connector {
+            RoutableConnectors::Iugu => Self::Iugu,
             RoutableConnectors::Adyenplatform => Self::Adyenplatform,
             #[cfg(feature = "dummy_connector")]
             RoutableConnectors::DummyBillingConnector => Self::DummyBillingConnector,
@@ -708,6 +712,7 @@ impl TryFrom<Connector> for RoutableConnectors {
             Connector::Helcim => Ok(Self::Helcim),
             Connector::Iatapay => Ok(Self::Iatapay),
             Connector::Itaubank => Ok(Self::Itaubank),
+            Connector::Iugu => Ok(Self::Iugu),
             Connector::Jpmorgan => Ok(Self::Jpmorgan),
             Connector::Klarna => Ok(Self::Klarna),
             Connector::Mifinity => Ok(Self::Mifinity),
