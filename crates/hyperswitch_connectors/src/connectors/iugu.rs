@@ -21,7 +21,7 @@ use hyperswitch_domain_models::{
         PaymentsCancelData, PaymentsCaptureData, PaymentsSessionData, PaymentsSyncData,
         RefundsData, SetupMandateRequestData,
     },
-    router_response_types::{PaymentsResponseData, RefundsResponseData},
+    router_response_types::PaymentsResponseData,
     types::{
         PaymentsAuthorizeRouterData, PaymentsCaptureRouterData, PaymentsSyncRouterData,
         RefundSyncRouterData, RefundsRouterData,
@@ -200,7 +200,7 @@ impl ConnectorIntegration<Authorize, PaymentsAuthorizeData, PaymentsResponseData
     fn get_request_body(
         &self,
         req: &PaymentsAuthorizeRouterData,
-        _connectors: &Connectors,
+        connectors: &Connectors,
     ) -> CustomResult<RequestContent, errors::ConnectorError> {
         use hyperswitch_domain_models::payment_method_data::PaymentMethodData;
         match &req.request.payment_method_data {
@@ -509,7 +509,7 @@ impl ConnectorIntegration<Void, PaymentsCancelData, PaymentsResponseData> for Iu
     }
 }
 
-impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Iugu {
+impl ConnectorIntegration<Execute, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData> for Iugu {
     fn get_headers(
         &self,
         req: &RefundsRouterData<Execute>,
@@ -528,23 +528,22 @@ impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Iugu {
         connectors: &Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
         let base = self.base_url(connectors);
-        let invoice_id = req.request.connector_transaction_id.clone();
-        Ok(format!("{}/invoices/{}/refund", base, invoice_id))
+        Ok(format!("{}/refunds", base))
     }
 
     fn get_request_body(
         &self,
-        req: &RefundsRouterData<Execute>,
+        _req: &RefundsRouterData<Execute>,
         _connectors: &Connectors,
     ) -> CustomResult<RequestContent, errors::ConnectorError> {
         let refund_amount = utils::convert_amount(
             self.amount_converter,
-            req.request.minor_refund_amount,
-            req.request.currency,
+            _req.request.minor_refund_amount,
+            _req.request.currency,
         )?;
 
-        let connector_router_data = IuguRouterData::from((refund_amount, req));
-        let connector_req = IuguRefundRequest::try_from(&connector_router_data)?;
+        let connector_router_data = transformers::IuguRouterData::from((refund_amount, _req));
+        let connector_req = transformers::IuguRefundRequest::try_from(&connector_router_data)?;
         Ok(RequestContent::Json(Box::new(connector_req)))
     }
 
@@ -555,15 +554,14 @@ impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Iugu {
     ) -> CustomResult<Option<Request>, errors::ConnectorError> {
         let request = RequestBuilder::new()
             .method(Method::Post)
-            .url(&types::RefundExecuteType::get_url(self, req, connectors)?)
+            .url(&self.get_url(req, connectors)?)
             .attach_default_headers()
             .headers(types::RefundExecuteType::get_headers(
                 self, req, connectors,
             )?)
-            .set_body(types::RefundExecuteType::get_request_body(
-                self, req, connectors,
-            )?)
+            .set_body(self.get_request_body(req, connectors)?)
             .build();
+
         Ok(Some(request))
     }
 
@@ -573,17 +571,20 @@ impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Iugu {
         event_builder: Option<&mut ConnectorEvent>,
         res: Response,
     ) -> CustomResult<RefundsRouterData<Execute>, errors::ConnectorError> {
-        let response: RefundResponse = res
+        let response: transformers::RefundResponse = res
             .response
-            .parse_struct("iugu RefundResponse")
+            .parse_struct("RefundResponse")
             .change_context(errors::ConnectorError::ResponseDeserializationFailed)?;
+
         event_builder.map(|i| i.set_response_body(&response));
         router_env::logger::info!(connector_response=?response);
-        RouterData::try_from(ResponseRouterData {
+
+        Ok(RouterData::try_from(ResponseRouterData {
             response,
             data: data.clone(),
             http_code: res.status_code,
         })
+        .change_context(errors::ConnectorError::ResponseHandlingFailed)?)
     }
 
     fn get_error_response(
@@ -595,7 +596,7 @@ impl ConnectorIntegration<Execute, RefundsData, RefundsResponseData> for Iugu {
     }
 }
 
-impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Iugu {
+impl ConnectorIntegration<RSync, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData> for Iugu {
     fn get_headers(
         &self,
         req: &RefundSyncRouterData,
@@ -614,8 +615,7 @@ impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Iugu {
         connectors: &Connectors,
     ) -> CustomResult<String, errors::ConnectorError> {
         let base = self.base_url(connectors);
-        let invoice_id = req.request.connector_transaction_id.clone();
-        Ok(format!("{}/invoices/{}", base, invoice_id))
+        Ok(format!("{}/refunds/{}", base, req.request.refund_id))
     }
 
     fn build_request(
@@ -626,12 +626,9 @@ impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Iugu {
         Ok(Some(
             RequestBuilder::new()
                 .method(Method::Get)
-                .url(&types::RefundSyncType::get_url(self, req, connectors)?)
+                .url(&self.get_url(req, connectors)?)
                 .attach_default_headers()
                 .headers(types::RefundSyncType::get_headers(self, req, connectors)?)
-                .set_body(types::RefundSyncType::get_request_body(
-                    self, req, connectors,
-                )?)
                 .build(),
         ))
     }
@@ -642,17 +639,20 @@ impl ConnectorIntegration<RSync, RefundsData, RefundsResponseData> for Iugu {
         event_builder: Option<&mut ConnectorEvent>,
         res: Response,
     ) -> CustomResult<RefundSyncRouterData, errors::ConnectorError> {
-        let response: RefundResponse =
+        let response: transformers::RefundResponse =
             res.response
                 .parse_struct("iugu RefundSyncResponse")
                 .change_context(errors::ConnectorError::ResponseDeserializationFailed)?;
+
         event_builder.map(|i| i.set_response_body(&response));
         router_env::logger::info!(connector_response=?response);
-        RouterData::try_from(ResponseRouterData {
+
+        Ok(RouterData::try_from(ResponseRouterData {
             response,
             data: data.clone(),
             http_code: res.status_code,
         })
+        .change_context(errors::ConnectorError::ResponseHandlingFailed)?)
     }
 
     fn get_error_response(

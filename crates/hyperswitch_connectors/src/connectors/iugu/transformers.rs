@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use common_enums::{enums, AttemptStatus};
+use common_enums::{enums, AttemptStatus, RefundStatus};
 use common_utils::types::StringMinorUnit;
 use masking::Secret;
 use masking::ExposeInterface;
@@ -471,10 +471,14 @@ impl TryFrom<ResponseRouterData<Execute, RefundResponse, RefundsData, hyperswitc
     fn try_from(
         item: ResponseRouterData<Execute, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>,
     ) -> Result<Self, Self::Error> {
-        let resource_id = ResponseId::ConnectorTransactionId(item.response.id.clone());
-        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData::TransactionResponse {
-            resource_id,
-            connector_metadata: None,
+        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData {
+            connector_refund_id: item.response.id.clone(),
+            refund_status: match item.response.status.as_str() {
+                "succeeded" => RefundStatus::Success,
+                "pending" => RefundStatus::Pending,
+                "failed" => RefundStatus::Failure,
+                _ => RefundStatus::Pending,
+            },
         };
         Ok(RouterData {
             response: Ok(refunds_response),
@@ -496,10 +500,14 @@ impl TryFrom<ResponseRouterData<RSync, RefundResponse, RefundsData, hyperswitch_
     fn try_from(
         item: ResponseRouterData<RSync, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>,
     ) -> Result<Self, Self::Error> {
-        let resource_id = ResponseId::ConnectorTransactionId(item.response.id.clone());
-        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData::TransactionResponse {
-            resource_id,
-            connector_metadata: None,
+        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData {
+            connector_refund_id: item.response.id.clone(),
+            refund_status: match item.response.status.as_str() {
+                "succeeded" => RefundStatus::Success,
+                "pending" => RefundStatus::Pending,
+                "failed" => RefundStatus::Failure,
+                _ => RefundStatus::Pending,
+            },
         };
         Ok(RouterData {
             response: Ok(refunds_response),
