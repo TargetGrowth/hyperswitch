@@ -43,6 +43,7 @@ use error_stack::report;
 use common_enums::AttemptStatus;
 use hyperswitch_domain_models::router_response_types::RedirectForm;
 use hyperswitch_domain_models::types::PaymentsCancelRouterData;
+use hyperswitch_domain_models::router_request_types::ResponseId;
 
 use crate::{constants::headers, types::ResponseRouterData, utils};
 use crate::connectors::iugu::transformers::{

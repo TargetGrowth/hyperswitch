@@ -1,21 +1,24 @@
 use std::fmt::Debug;
 
-use common_enums::{enums, AttemptStatus, RefundStatus};
+use common_enums::{enums, AttemptStatus};
 use common_utils::types::StringMinorUnit;
 use masking::Secret;
+use masking::ExposeInterface;
 use serde::{Deserialize, Serialize};
 
 use hyperswitch_domain_models::{
     router_data::RouterData,
-    router_flow_types::{Authorize, Capture, Execute, PSync, RSync, Void},
+    router_flow_types::{Authorize, Capture, PSync, Void, Execute, RSync},
     router_request_types::{
         PaymentsAuthorizeData, PaymentsCaptureData, PaymentsCancelData, PaymentsSyncData,
+        ResponseId,
+        RefundsData,
     },
     router_response_types::{
-        PaymentsResponseData, RefundsResponseData as RefundsResponseDataType,
-        RedirectForm, ResponseId,
+        PaymentsResponseData, RedirectForm,
     },
     payment_method_data::PaymentMethodData,
+    types::RefundsRouterData,
 };
 
 use hyperswitch_interfaces::{
@@ -30,16 +33,10 @@ use hyperswitch_interfaces::{
     webhooks,
 };
 
-use common_utils::ext_traits::OptionExt;
-
-use crate::types::{
-    api as api_types, storage::enums as storage_enums, Connector, ConnectorData,
-    TransformersData,
-};
-
-use crate::types::{RefundsRouterData, RefundSyncRouterData, ResponseRouterData, RefundsResponseRouterData};
-use hyperswitch_domain_models::router_response_types::RefundsResponseData as RefundsResponseDataType;
-use hyperswitch_domain_models::router_request_types::ResponseId;
+use crate::types::ResponseRouterData;
+use hyperswitch_domain_models::types::PaymentsAuthorizeRouterData;
+use hyperswitch_domain_models::router_data::ConnectorAuthType;
+use common_utils::request::Method;
 
 //TODO: Fill the struct with respective fields
 pub struct IuguRouterData<T> {
@@ -304,7 +301,6 @@ pub struct IuguPixDetails {
 
 // --- TRYFROM IMPLEMENTATIONS ---
 use crate::utils::PaymentsAuthorizeRequestData;
-use hyperswitch_domain_models::router_request_types::PaymentsAuthorizeRouterData;
 
 impl TryFrom<&PaymentsAuthorizeRouterData> for IuguChargeRequest {
     type Error = error_stack::Report<errors::ConnectorError>;
@@ -317,7 +313,7 @@ impl TryFrom<&PaymentsAuthorizeRouterData> for IuguChargeRequest {
         Ok(IuguChargeRequest {
             token,
             customer_payment_method_id: method_id,
-            email: email.to_string(),
+            email: email.expose().expose().to_owned(),
             order_id: Some(order_id),
             payer,
             invoice_id: None,
@@ -336,7 +332,7 @@ impl TryFrom<&PaymentsAuthorizeRouterData> for IuguInvoiceRequest {
         let payable_with = vec!["bank_slip".to_string()]; // TODO: ajustar para pix/cartão
         let items = vec![]; // TODO: popular itens
         Ok(IuguInvoiceRequest {
-            email: email.to_string(),
+            email: email.expose().expose().to_owned(),
             due_date,
             payable_with,
             items,
@@ -359,7 +355,7 @@ impl TryFrom<ResponseRouterData<Authorize, IuguInvoiceResponse, PaymentsAuthoriz
         let status = AttemptStatus::from(item.response.status.clone());
         let resource_id = ResponseId::ConnectorTransactionId(item.response.id.clone());
         let redirection_data = item.response.secure_url.as_ref().map(|url| {
-            Box::new(Some(RedirectForm::from((url, services::Method::Get))))
+            Box::new(Some(RedirectForm::from((url::Url::parse(url).unwrap(), Method::Get))))
         }).unwrap_or(Box::new(None));
         let payments_response = PaymentsResponseData::TransactionResponse {
             resource_id,
@@ -455,6 +451,64 @@ impl TryFrom<ResponseRouterData<Void, IuguInvoiceResponse, PaymentsCancelData, P
         Ok(RouterData {
             response: Ok(payments_response),
             status,
+            ..item.data
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct RefundResponse {
+    pub id: String,
+    pub status: String,
+    pub amount: Option<u64>,
+    pub error: Option<String>,
+}
+
+impl TryFrom<ResponseRouterData<Execute, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>>
+    for RouterData<Execute, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<Execute, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        let resource_id = ResponseId::ConnectorTransactionId(item.response.id.clone());
+        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData::TransactionResponse {
+            resource_id,
+            connector_metadata: None,
+        };
+        Ok(RouterData {
+            response: Ok(refunds_response),
+            status: match item.response.status.as_str() {
+                "succeeded" => AttemptStatus::Charged,
+                "pending" => AttemptStatus::Pending,
+                "failed" => AttemptStatus::Failure,
+                _ => AttemptStatus::Pending,
+            },
+            ..item.data
+        })
+    }
+}
+
+impl TryFrom<ResponseRouterData<RSync, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>>
+    for RouterData<RSync, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>
+{
+    type Error = error_stack::Report<errors::ConnectorError>;
+    fn try_from(
+        item: ResponseRouterData<RSync, RefundResponse, RefundsData, hyperswitch_domain_models::router_response_types::RefundsResponseData>,
+    ) -> Result<Self, Self::Error> {
+        let resource_id = ResponseId::ConnectorTransactionId(item.response.id.clone());
+        let refunds_response = hyperswitch_domain_models::router_response_types::RefundsResponseData::TransactionResponse {
+            resource_id,
+            connector_metadata: None,
+        };
+        Ok(RouterData {
+            response: Ok(refunds_response),
+            status: match item.response.status.as_str() {
+                "succeeded" => AttemptStatus::Charged,
+                "pending" => AttemptStatus::Pending,
+                "failed" => AttemptStatus::Failure,
+                _ => AttemptStatus::Pending,
+            },
             ..item.data
         })
     }
